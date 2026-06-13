@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kinase Affinity Predictor - PDB Based</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 20px;
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .form-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border: 2px solid #e9ecef;
+        }
+
+        .form-section h2 {
+            color: #667eea;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .upload-group {
+            margin-bottom: 25px;
+        }
+
+        .upload-group label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.05em;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            display: none;
+        }
+
+        .file-input-label {
+            display: block;
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: 2px dashed transparent;
+        }
+
+        .file-input-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .file-input-label.dragover {
+            background: #764ba2;
+            border-color: #667eea;
+            transform: scale(1.02);
+        }
+
+        .file-name {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 8px;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .file-name.show {
+            display: block;
+        }
+
+        .kinase-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border: 2px solid #e9ecef;
+        }
+
+        .kinase-section h2 {
+            color: #667eea;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+        }
+
+        .kinase-select {
+            width: 100%;
+            padding: 12px;
+            font-size: 1em;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        .kinase-select:hover {
+            border-color: #667eea;
+        }
+
+        .kinase-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-predict {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            flex: 1;
+        }
+
+        .btn-predict:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-predict:active {
+            transform: translateY(0);
+        }
+
+        .btn-clear {
+            background: #e9ecef;
+            color: #333;
+            flex: 1;
+        }
+
+        .btn-clear:hover {
+            background: #dee2e6;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            border-left: 5px solid #667eea;
+            margin-top: 30px;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .results h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .results p {
+            margin: 12px 0;
+            font-size: 1.05em;
+            line-height: 1.6;
+        }
+
+        .results strong {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .affinity {
+            color: #667eea;
+            font-weight: bold;
+            font-size: 1.3em;
+        }
+
+        .error {
+            display: none;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .ligand-list {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+        }
+
+        .ligand-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: #f0f0f0;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .ligand-item .remove-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .ligand-item .remove-btn:hover {
+            background: #c82333;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .results-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .results-table td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .results-table tr:hover {
+            background: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔬 Kinase Affinity Predictor</h1>
+            <p>Upload Protein & Ligand(s) PDB Files for Exact Binding Affinity Prediction</p>
+        </div>
+
+        <div id="error" class="error"></div>
+
+        <form id="predictionForm">
+            <!-- Protein Upload Section -->
+            <div class="form-section">
+                <h2>🧬 Protein PDB File</h2>
+                <div class="upload-group">
+                    <label for="proteinFile">Upload Protein Structure (PDB)</label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="proteinFile" name="proteinFile" accept=".pdb" required>
+                        <label for="proteinFile" class="file-input-label">
+                            📁 Click to upload or drag protein PDB file
+                        </label>
+                        <div class="file-name" id="proteinFileName"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ligand Upload Section -->
+            <div class="form-section">
+                <h2>💊 Ligand PDB File(s)</h2>
+                <div class="upload-group">
+                    <label for="ligandFile">Upload Ligand Structure(s) (PDB) - Single or Multiple</label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="ligandFile" name="ligandFile" accept=".pdb" multiple required>
+                        <label for="ligandFile" class="file-input-label">
+                            📁 Click to upload or drag ligand PDB file(s)
+                        </label>
+                    </div>
+                    <div class="ligand-list" id="ligandList"></div>
+                </div>
+            </div>
+
+            <!-- Kinase Selection -->
+            <div class="kinase-section">
+                <h2>🎯 Select Kinase</h2>
+                <select id="kinaseSelect" class="kinase-select" required>
+                    <option value="">-- Select Target Kinase --</option>
+                    <option value="ABL1">ABL1 (BCR-ABL)</option>
+                    <option value="ABL2">ABL2</option>
+                    <option value="KIT">KIT</option>
+                    <option value="PDGFRA">PDGFRA</option>
+                    <option value="PDGFRB">PDGFRB</option>
+                    <option value="SRC">SRC</option>
+                    <option value="LYN">LYN</option>
+                    <option value="YES1">YES1</option>
+                    <option value="FYN">FYN</option>
+                    <option value="FRK">FRK</option>
+                    <option value="EGFR">EGFR</option>
+                    <option value="ERBB2">ERBB2 (HER2)</option>
+                    <option value="ERBB3">ERBB3 (HER3)</option>
+                    <option value="ERBB4">ERBB4 (HER4)</option>
+                    <option value="KDR">KDR (VEGFR2)</option>
+                    <option value="FLT1">FLT1 (VEGFR1)</option>
+                    <option value="FLT4">FLT4 (VEGFR3)</option>
+                    <option value="FGFR1">FGFR1</option>
+                    <option value="FGFR2">FGFR2</option>
+                    <option value="FGFR3">FGFR3</option>
+                    <option value="FGFR4">FGFR4</option>
+                    <option value="BRAF">BRAF</option>
+                    <option value="RAF1">RAF1</option>
+                    <option value="MAP2K1">MAP2K1 (MEK1)</option>
+                    <option value="RET">RET</option>
+                    <option value="MET">MET</option>
+                    <option value="4HJO">4HJO</option>
+                </select>
+            </div>
+
+            <!-- Buttons -->
+            <div class="button-group">
+                <button type="submit" class="btn btn-predict">🚀 Predict Affinity</button>
+                <button type="button" id="clearBtn" class="btn btn-clear">🗑️ Clear All</button>
+            </div>
+        </form>
+
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing files and calculating affinity scores...</p>
+        </div>
+
+        <!-- Results -->
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        const proteinFile = document.getElementById('proteinFile');
+        const ligandFile = document.getElementById('ligandFile');
+        const kinaseSelect = document.getElementById('kinaseSelect');
+        const predictionForm = document.getElementById('predictionForm');
+        const clearBtn = document.getElementById('clearBtn');
+        const loading = document.getElementById('loading');
+        const resultsDiv = document.getElementById('results');
+        const errorDiv = document.getElementById('error');
+        const proteinFileName = document.getElementById('proteinFileName');
+        const ligandList = document.getElementById('ligandList');
+
+        let proteinContent = '';
+        let ligandContents = {};
+
+        // Drag and drop for protein
+        const proteinLabel = document.querySelector('label[for="proteinFile"]');
+        proteinLabel.addEventListener('dragover', e => {
+            e.preventDefault();
+            proteinLabel.classList.add('dragover');
+        });
+        proteinLabel.addEventListener('dragleave', () => {
+            proteinLabel.classList.remove('dragover');
+        });
+        proteinLabel.addEventListener('drop', e => {
+            e.preventDefault();
+            proteinLabel.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                proteinFile.files = files;
+                handleProteinFile(files[0]);
+            }
+        });
+
+        // Drag and drop for ligands
+        const ligandLabel = document.querySelector('label[for="ligandFile"]');
+        ligandLabel.addEventListener('dragover', e => {
+            e.preventDefault();
+            ligandLabel.classList.add('dragover');
+        });
+        ligandLabel.addEventListener('dragleave', () => {
+            ligandLabel.classList.remove('dragover');
+        });
+        ligandLabel.addEventListener('drop', e => {
+            e.preventDefault();
+            ligandLabel.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                ligandFile.files = files;
+                handleLigandFiles(files);
+            }
+        });
+
+        // Handle protein file
+        proteinFile.addEventListener('change', e => {
+            if (e.target.files.length > 0) {
+                handleProteinFile(e.target.files[0]);
+            }
+        });
+
+        function handleProteinFile(file) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                proteinContent = e.target.result;
+                proteinFileName.textContent = `✅ Protein loaded: ${file.name}`;
+                proteinFileName.classList.add('show');
+            };
+            reader.readAsText(file);
+        }
+
+        // Handle ligand files
+        ligandFile.addEventListener('change', e => {
+            handleLigandFiles(e.target.files);
+        });
+
+        function handleLigandFiles(files) {
+            ligandContents = {};
+            ligandList.innerHTML = '';
+
+            for (let file of files) {
+                const reader = new FileReader();
+                const fileName = file.name;
+                
+                reader.onload = e => {
+                    ligandContents[fileName] = e.target.result;
+                    updateLigandList();
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function updateLigandList() {
+            ligandList.innerHTML = '';
+            for (const fileName in ligandContents) {
+                const div = document.createElement('div');
+                div.className = 'ligand-item';
+                div.innerHTML = `
+                    <span>📄 ${fileName}</span>
+                    <button type="button" class="remove-btn" onclick="removeLigand('${fileName}')">Remove</button>
+                `;
+                ligandList.appendChild(div);
+            }
+        }
+
+        function removeLigand(fileName) {
+            delete ligandContents[fileName];
+            updateLigandList();
+        }
+
+        clearBtn.addEventListener('click', () => {
+            proteinFile.value = '';
+            ligandFile.value = '';
+            proteinContent = '';
+            ligandContents = {};
+            proteinFileName.classList.remove('show');
+            ligandList.innerHTML = '';
+            kinaseSelect.value = '';
+            resultsDiv.classList.remove('show');
+            errorDiv.classList.remove('show');
+        });
+
+        predictionForm.addEventListener('submit', async e => {
+            e.preventDefault();
+            errorDiv.classList.remove('show');
+
+            if (!proteinContent) {
+                showError('Please upload a protein PDB file');
+                return;
+            }
+
+            if (Object.keys(ligandContents).length === 0) {
+                showError('Please upload at least one ligand PDB file');
+                return;
+            }
+
+            const kinase = kinaseSelect.value;
+            if (!kinase) {
+                showError('Please select a kinase');
+                return;
+            }
+
+            loading.style.display = 'block';
+            resultsDiv.classList.remove('show');
+
+            try {
+                const results = [];
+
+                for (const ligandFileName in ligandContents) {
+                    const data = {
+                        kinase: kinase,
+                        ligand_name: ligandFileName.replace('.pdb', ''),
+                        protein_content: proteinContent,
+                        ligand_content: ligandContents[ligandFileName]
+                    };
+
+                    const response = await fetch('/predict', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    results.push(result);
+                }
+
+                displayResults(results);
+            } catch (error) {
+                console.error('Prediction error:', error);
+                showError('Error: ' + error.message + '\n\nMake sure the web server is running: python3 web_server.py');
+            } finally {
+                loading.style.display = 'none';
+            }
+        });
+
+        function displayResults(results) {
+            let html = '<h3>📊 Binding Affinity Predictions</h3>';
+            
+            if (results.length === 1) {
+                const result = results[0];
+                html += `
+                    <p><strong>Kinase:</strong> ${result.kinase}</p>
+                    <p><strong>Ligand:</strong> ${result.ligand_name}</p>
+                    <p><strong>Binding Affinity:</strong> <span class="affinity">${result.affinity_score.toFixed(2)}</span> kcal/mol</p>
+                    <p><strong>Interpretation:</strong> ${result.interpretation}</p>
+                    <p><strong>Protein Info:</strong></p>
+                    <ul style="margin-left: 20px; margin-top: 5px;">
+                        <li>Resolution: ${result.protein_info.resolution.toFixed(2)} Å</li>
+                        <li>Sequence Length: ${result.protein_info.sequence_length} residues</li>
+                        <li>Total Atoms: ${result.protein_info.n_atoms}</li>
+                    </ul>
+                `;
+            } else {
+                html += '<table class="results-table"><thead><tr><th>Ligand</th><th>Affinity (kcal/mol)</th><th>Interpretation</th></tr></thead><tbody>';
+                
+                for (const result of results) {
+                    html += `
+                        <tr>
+                            <td>${result.ligand_name}</td>
+                            <td><span class="affinity">${result.affinity_score.toFixed(2)}</span></td>
+                            <td>${result.interpretation}</td>
+                        </tr>
+                    `;
+                }
+                
+                html += '</tbody></table>';
+            }
+
+            resultsDiv.innerHTML = html;
+            resultsDiv.classList.add('show');
+        }
+
+        function showError(message) {
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "model_type": "Voting Ensemble (XGBoost + RF + GB + Ridge)",
+  "training_data": "5,200 real records",
+  "n_features": 58,
+  "n_kinases": 27,
+  "n_families": 8,
+  "metrics": {
+    "train_r2": 0.9869275891928652,
+    "val_r2": 0.9817855728769925,
+    "test_r2": 0.9824140971587283,
+    "train_rmse": 7.399538094870906,
+    "val_rmse": 9.612596294009016,
+    "test_rmse": 9.525275879137052,
+    "train_mae": 4.110430593142453,
+    "val_mae": 4.717804284083076,
+    "test_mae": 4.576494859865112
+  }
+}

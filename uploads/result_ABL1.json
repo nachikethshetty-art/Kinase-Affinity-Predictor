@@ -1,0 +1,8 @@
+{
+  "kinase": "ABL1",
+  "affinity_score": -2.4781026141072147,
+  "confidence": 0.7121726864023942,
+  "uncertainty": 1.00109293183529,
+  "interpretation": "Strong binding (Kd 100 nM - 1 \u00b5M)",
+  "pdb_file": "uploads/test.pdb"
+}
