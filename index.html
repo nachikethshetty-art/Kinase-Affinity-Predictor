@@ -326,6 +326,95 @@
         .results-table tr:hover {
             background: #f5f5f5;
         }
+
+        .card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .card h4 {
+            color: #667eea;
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .coords-display {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.95em;
+        }
+
+        .interactions-table {
+            width: 100%;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .interactions-table th, .interactions-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .interactions-table th {
+            background: #f0f0f0;
+            font-weight: 600;
+        }
+
+        .vina-output {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            line-height: 1.4;
+        }
+
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .copy-btn:hover {
+            background: #764ba2;
+        }
+
+        .confidence-bar {
+            background: #f0f0f0;
+            border-radius: 5px;
+            height: 25px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.85em;
+            transition: width 0.5s ease;
+        }
     </style>
 </head>
 <body>
@@ -575,7 +664,7 @@
                         ligand_content: ligandContents[ligandFileName]
                     };
 
-                    const response = await fetch('/predict', {
+                    const response = await fetch('/predict_full', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -605,11 +694,61 @@
             
             if (results.length === 1) {
                 const result = results[0];
+                const modelConfidence = (result.model_metrics.pearson_r * 100).toFixed(1);
+                const centroid = result.ligand_coordinates.centroid;
+                
                 html += `
                     <p><strong>Kinase:</strong> ${result.kinase}</p>
                     <p><strong>Ligand:</strong> ${result.ligand_name}</p>
                     <p><strong>Binding Affinity:</strong> <span class="affinity">${result.affinity_score.toFixed(2)}</span> kcal/mol</p>
                     <p><strong>Interpretation:</strong> ${result.interpretation}</p>
+                    
+                    <div class="card">
+                        <h4>📍 Ligand Centroid Coordinates</h4>
+                        <div class="coords-display">
+                            X: ${centroid.x.toFixed(3)} Å<br>
+                            Y: ${centroid.y.toFixed(3)} Å<br>
+                            Z: ${centroid.z.toFixed(3)} Å<br>
+                            Total Atoms: ${result.ligand_coordinates.atoms.length}
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h4>🔗 Protein-Ligand Interactions</h4>
+                        ${result.interactions.length > 0 ? `
+                        <table class="interactions-table">
+                            <thead>
+                                <tr><th>Residue</th><th>Chain</th><th>Number</th><th>Type</th><th>Distance (Å)</th></tr>
+                            </thead>
+                            <tbody>
+                                ${result.interactions.map(inter => `
+                                    <tr>
+                                        <td>${inter.residue}</td>
+                                        <td>${inter.chain}</td>
+                                        <td>${inter.residue_num}</td>
+                                        <td>${inter.type}</td>
+                                        <td>${inter.distance.toFixed(2)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                        ` : '<p>No significant interactions detected</p>'}
+                    </div>
+                    
+                    <div class="card">
+                        <h4>💊 AutoDock Vina-style Output</h4>
+                        <div class="vina-output">${escapeHtml(result.vina_text)}</div>
+                        <button class="copy-btn" onclick="copyToClipboard('${escapeHtml(result.vina_text)}')">📋 Copy</button>
+                    </div>
+                    
+                    <div class="card">
+                        <h4>🎯 Model Confidence</h4>
+                        <p>Test Set Pearson R: ${result.model_metrics.pearson_r.toFixed(3)}</p>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${modelConfidence}%">${modelConfidence}%</div>
+                        </div>
+                    </div>
+                    
                     <p><strong>Protein Info:</strong></p>
                     <ul style="margin-left: 20px; margin-top: 5px;">
                         <li>Resolution: ${result.protein_info.resolution.toFixed(2)} Å</li>
@@ -618,14 +757,16 @@
                     </ul>
                 `;
             } else {
-                html += '<table class="results-table"><thead><tr><th>Ligand</th><th>Affinity (kcal/mol)</th><th>Interpretation</th></tr></thead><tbody>';
+                html += '<table class="results-table"><thead><tr><th>Ligand</th><th>Affinity (kcal/mol)</th><th>Interpretation</th><th>Centroid</th></tr></thead><tbody>';
                 
                 for (const result of results) {
+                    const centroid = result.ligand_coordinates.centroid;
                     html += `
                         <tr>
                             <td>${result.ligand_name}</td>
                             <td><span class="affinity">${result.affinity_score.toFixed(2)}</span></td>
                             <td>${result.interpretation}</td>
+                            <td>(${centroid.x.toFixed(1)}, ${centroid.y.toFixed(1)}, ${centroid.z.toFixed(1)})</td>
                         </tr>
                     `;
                 }
@@ -635,6 +776,18 @@
 
             resultsDiv.innerHTML = html;
             resultsDiv.classList.add('show');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Vina output copied to clipboard!');
+            });
         }
 
         function showError(message) {
